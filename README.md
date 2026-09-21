@@ -1,0 +1,2 @@
+# Seurantasovellus
+Opinnäytetyön repo
