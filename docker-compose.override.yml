@@ -1,0 +1,15 @@
+services:
+  db:
+    ports:
+      - "${DB_PORT}:5432"   # Tietokanta näkyviin hostille
+
+  backend:
+    volumes:
+      - ./backend:/usr/src/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    volumes:
+      - ./seuranta-app:/usr/src/app
+      - /usr/src/app/node_modules
+    command: npm start
