@@ -11,12 +11,13 @@
 
 #define SENSING_CHANNEL 6
 #define PING_INTERVAL_US 33333 // 30 Hz (~33.3 ms)
+#define TX_NODE_ID 1
 
 static const char *TAG = "CSI_TX";
-static const uint8_t s_RX_mac[ESP_NOW_ETH_ALEN] = {0x80, 0xb5, 0x4e, 0xde, 0x96, 0xb8}; //Tähän RX MAC
+static const uint8_t s_RX_mac[ESP_NOW_ETH_ALEN] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}; //Tähän RX MAC
 static uint32_t s_seq = 0;
 
-static const char* PMK_KEY_STR = "tamaonpmkavainjo";
+static const char* PMK_KEY_STR = "tamaonpmkavainjo"; //Needs to be 16 bit key!
 static const char* LMK_KEY_STR = "tamaonlmkavainjo";
 
 static void ping_timer_callback(void *arg) {
