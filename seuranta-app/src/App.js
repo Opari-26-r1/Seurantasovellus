@@ -70,7 +70,7 @@ function LineChart({ range }) {
         <circle cx="397" cy="35" r="4" fill="#fff" stroke="#2f6fed" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
       </svg>
       <div className="absolute inset-x-0 bottom-0 flex justify-between text-[11px] text-slate-400">
-        <span>12:00</span><span>14:00</span><span>16:00</span><span>18:00</span><span>20:00</span><span>Now</span>
+        <span>10:00</span><span>14:00</span><span>16:00</span><span>18:00</span><span>20:00</span><span>Now</span>
       </div>
     </div>
   );
