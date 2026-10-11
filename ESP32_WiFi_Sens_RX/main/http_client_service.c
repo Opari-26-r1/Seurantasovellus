@@ -4,10 +4,12 @@
 #include "esp_log.h"
 #include "esp_http_client.h"
 #include "cJSON.h"
+#include "esp_wifi.h"
+#include "esp_timer.h"
 
 static const char *TAG = "HTTP_SERVICE";
-// Update with your local Docker host LAN IP
-#define SERVER_URL "http://SERVER_IP_HERE:8000"
+#define SERVER_URL "http://DockerKoneIp:8000"
+#define DEVICE_API_KEY "OMA_LAITE_AVAIN_TAHAN"
 
 static esp_err_t http_event_handler(esp_http_client_event_t *evt) {
     if (evt->event_id == HTTP_EVENT_ON_DATA) {
@@ -21,11 +23,24 @@ esp_err_t http_client_send_telemetry(const float *variances, const bool *presenc
         return ESP_ERR_INVALID_ARG;
     }
 
+    //Haetaan RSSI ja Uptime
+    wifi_ap_record_t ap_info;
+    int rssi = 0;
+    if (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK) {
+        rssi = ap_info.rssi;
+    }
+
+    int64_t uptime_s = esp_timer_get_time() / 1000000ULL;
+
+    //Luodaan JSON
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "device_id", "RX_S3_HUB");
-    cJSON *links = cJSON_AddArrayToObject(root, "links");
+    cJSON_AddNumberToObject(root, "temperature", 0.0);
+    cJSON_AddNumberToObject(root, "pressure", 0.0);
+    cJSON_AddNumberToObject(root, "rssi", rssi);
+    cJSON_AddNumberToObject(root, "uptime_s", (double)uptime_s);
 
-    // Käydään läpi kaikki verkon solmut (nyt dynaamisesti num_nodes = 4)
+    cJSON *links = cJSON_AddArrayToObject(root, "links");
     for (int i = 0; i < num_nodes; i++) {
         cJSON *link = cJSON_CreateObject();
         cJSON_AddNumberToObject(link, "tx_id", i + 1);
@@ -42,6 +57,7 @@ esp_err_t http_client_send_telemetry(const float *variances, const bool *presenc
         return ESP_ERR_NO_MEM;
     }
 
+    //Konfiguroidaan ja lähetetään HTTP POST
     esp_http_client_config_t config = {
         .url = SERVER_URL "/readings",
         .method = HTTP_METHOD_POST,
@@ -54,7 +70,10 @@ esp_err_t http_client_send_telemetry(const float *variances, const bool *presenc
         free(post_data);
         return ESP_FAIL;
     }
+
     esp_http_client_set_header(client, "Content-Type", "application/json");
+    //Tarkista vastaako avain backendiin määritettyä avainta
+    esp_http_client_set_header(client, "X-Device-Key", DEVICE_API_KEY);
     esp_http_client_set_post_field(client, post_data, strlen(post_data));
 
     esp_err_t err = esp_http_client_perform(client);

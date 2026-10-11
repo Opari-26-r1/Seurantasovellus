@@ -26,7 +26,7 @@ static const uint8_t s_TX_mac[NUM_TX_NODES][ESP_NOW_ETH_ALEN] = {
                             {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, //node 1 esp32-s3
                             {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, //node 2 esp32 D0WD
                             {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, //node 3 esp32 D0WD   MAC 68:fe:71:88:fb:0c
-                            {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}   //node 4 esp32 D0WD
+                            {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}  //node 4 esp32 D0WD
 };
 
 //ESP-NOW device pairing unique keys
@@ -67,8 +67,9 @@ static void telemetry_task(void *pvParameters) {
     while (1) {
         if (xQueueReceive(s_telemetry_queue, &event, portMAX_DELAY) == pdTRUE) {
             if (s_wifi_connected) {
-                // Välitetään taulukot ja nodien määrä
-                http_client_send_telemetry(event.variance, event.presence, NUM_TX_NODES);
+                //taulukot ja nodien määrä
+                //0.0f koska ei antureita kiinni muuten lämpötila ja ilmanpaine
+                http_client_send_telemetry(0.0f, 0.0f, event.variance, event.presence, NUM_TX_NODES);
             } else {
                 ESP_LOGW(TAG, "Skipping HTTP POST: No Wi-Fi IP connection");
             }
@@ -84,7 +85,7 @@ static void wifi_csi_rx_cb(void *ctx, wifi_csi_info_t *info) {
     if (!info || !info->buf) return;
     if (info->len < NUM_SUBCARRIERS * 2) return;
 
-    // 1. Tunnistetaan mistä TX:stä paketti tuli
+    //Tunnistetaan mistä TX:stä paketti tuli
     int tx_idx = -1;
     for (int i = 0; i < NUM_TX_NODES; i++) {
         if (memcmp(info->mac, s_TX_mac[i], ESP_NOW_ETH_ALEN) == 0) {
@@ -112,32 +113,49 @@ static void wifi_csi_rx_cb(void *ctx, wifi_csi_info_t *info) {
     for (int sc = 6; sc < 58; sc++) {
         if (sc >= 28 && sc <= 36) continue;
 
-        float sum = 0.0f;
-        for (int w = 0; w < WINDOW_SIZE; w++) {
-            sum += s_amp_window[tx_idx][w][sc];
-        }
-        float mean = sum / WINDOW_SIZE;
+            float sum = 0.0f;
+            for (int w = 0; w < WINDOW_SIZE; w++) {
+                sum += s_amp_window[tx_idx][w][sc];
+            }
+            float mean = sum / WINDOW_SIZE;
 
-        float var_sum = 0.0f;
-        for (int w = 0; w < WINDOW_SIZE; w++) {
-            float diff = s_amp_window[tx_idx][w][sc] - mean;
-            var_sum += diff * diff;
-        }
-        total_var += (var_sum / WINDOW_SIZE);
-        valid_subcarriers++;
+            float var_sum = 0.0f;
+            for (int w = 0; w < WINDOW_SIZE; w++) {
+                float diff = s_amp_window[tx_idx][w][sc] - mean;
+                var_sum += diff * diff;
+            }
+            total_var += (var_sum / WINDOW_SIZE);
+            valid_subcarriers++;
     }
 
-    // Tallennetaan laskettu varianssi oikealle nodelle
-    s_variances[tx_idx] = total_var / valid_subcarriers;
+        // Tallennetaan laskettu varianssi oikealle nodelle
+        s_variances[tx_idx] = total_var / valid_subcarriers;
 
-    // Rate-limit: Lähetetään koottu tilanne 1.5 s välein
-    static TickType_t last_send_tick = 0;
-    TickType_t now = xTaskGetTickCount();
+        // Rate-limit: Lähetetään koottu tilanne 1.5 s välein
+        static TickType_t last_send_tick = 0;
+        static bool last_presence_state = false;
+        TickType_t now = xTaskGetTickCount();
+        bool current_presence = false;
 
-    if ((now - last_send_tick) > pdMS_TO_TICKS(1500)) {
+
+
+    for (int i = 0; i < NUM_TX_NODES; i++) {
+        if (s_variances[i] > VARIANCE_THRESHOLD) {
+        current_presence = true;
+        break;
+        }
+    }
+
+
+    bool state_changed = (current_presence != last_presence_state);
+    bool interval_elapsed = (now - last_send_tick) > pdMS_TO_TICKS(30000);
+    bool cooldown_ok = (now - last_send_tick) > pdMS_TO_TICKS(1500);
+
+    if (cooldown_ok && (state_changed || interval_elapsed)) {
         last_send_tick = now;
-        telemetry_event_t event;
+        last_presence_state = current_presence;
 
+        telemetry_event_t event;
         for (int i = 0; i < NUM_TX_NODES; i++) {
             event.variance[i] = s_variances[i];
             event.presence[i] = (s_variances[i] > VARIANCE_THRESHOLD);
@@ -159,10 +177,8 @@ void app_main(void) {
     esp_netif_create_default_wifi_sta();
 
     // Register Wi-Fi & IP handlers
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(
-        WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL, NULL));
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(
-        IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL, NULL));
 
     // Initialize Wi-Fi Station
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
@@ -172,9 +188,9 @@ void app_main(void) {
 
     wifi_config_t wifi_config = {
         .sta = {
-            .ssid = WIFI_SSID,
-            .password = WIFI_PASS,
-            .channel = SENSING_CHANNEL, // Pin STA to match transmitter channel
+        .ssid = WIFI_SSID,
+        .password = WIFI_PASS,
+        .channel = SENSING_CHANNEL, // Pin STA to match transmitter channel
         },
     };
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
