@@ -18,7 +18,8 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt) {
     return ESP_OK;
 }
 
-esp_err_t http_client_send_telemetry(const float *variances, const bool *presences, int num_nodes) {
+// temp ja press: NAN = anturia ei ole, jolloin kenttä jätetään JSONista pois (backend tallentaa NULL)
+esp_err_t http_client_send_telemetry(float temp, float press, const float *variances, const bool *presences, int num_nodes) {
     if (!variances || !presences || num_nodes <= 0) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -35,8 +36,6 @@ esp_err_t http_client_send_telemetry(const float *variances, const bool *presenc
     //Luodaan JSON
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "device_id", "RX_S3_HUB");
-    cJSON_AddNumberToObject(root, "temperature", 0.0);
-    cJSON_AddNumberToObject(root, "pressure", 0.0);
     cJSON_AddNumberToObject(root, "rssi", rssi);
     cJSON_AddNumberToObject(root, "uptime_s", (double)uptime_s);
 

@@ -68,8 +68,9 @@ static void telemetry_task(void *pvParameters) {
         if (xQueueReceive(s_telemetry_queue, &event, portMAX_DELAY) == pdTRUE) {
             if (s_wifi_connected) {
                 //taulukot ja nodien määrä
-                //0.0f koska ei antureita kiinni muuten lämpötila ja ilmanpaine
-                http_client_send_telemetry(0.0f, 0.0f, event.variance, event.presence, NUM_TX_NODES);
+                //NAN koska ei antureita kiinni -> lämpötila ja ilmanpaine jätetään pois JSONista
+                //Kun BMP280 kytketään, NAN:ien tilalle anturin lukemat
+                http_client_send_telemetry(NAN, NAN, event.variance, event.presence, NUM_TX_NODES);
             } else {
                 ESP_LOGW(TAG, "Skipping HTTP POST: No Wi-Fi IP connection");
             }

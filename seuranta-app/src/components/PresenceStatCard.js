@@ -1,10 +1,14 @@
 import Icon from './Icon';
 import { StatusDot } from './Card';
 
-/** occupied: true | false | null (ei tietoa) */
-export default function PresenceStatCard({ occupied }) {
+/** occupied: true | false | null (ei tietoa), activeTx: liikettä havaitsevien TX-laitteiden tunnisteet */
+export default function PresenceStatCard({ occupied, activeTx = [] }) {
   const title = occupied == null ? 'Ei tietoa' : occupied ? 'Huoneessa liikettä' : 'Huone tyhjä';
-  const detail = occupied == null ? 'Odotetaan mittauksia' : occupied ? 'Liikettä havaittu' : 'Ei liikettä havaittu';
+  const detail =
+    occupied == null ? 'Odotetaan mittauksia'
+    : !occupied ? 'Ei liikettä havaittu'
+    : activeTx.length > 0 ? `Havaitsee: TX ${activeTx.join(', ')}`
+    : 'Liikettä havaittu';
 
   return (
     <article className="flex items-center gap-4 rounded-2xl border border-blue-400/15 bg-[#0a1a3d]/80 p-5 shadow-[0_0_40px_rgba(37,99,235,.08)]">
