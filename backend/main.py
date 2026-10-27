@@ -39,10 +39,14 @@ app.add_middleware(
 )
 
 
-def verify_device_key(x_api_key: str | None = Header(default=None)):
-    """Jos DEVICE_API_KEY on asetettu .env:iin, laitteen pitää lähettää se X-API-Key-headerissa."""
+def verify_device_key(
+    x_api_key: str | None = Header(default=None),
+    x_device_key: str | None = Header(default=None),
+):
+    """Jos DEVICE_API_KEY on asetettu .env:iin, laitteen pitää lähettää se X-API-Key- tai X-Device-Key-headerissa."""
     expected = os.getenv("DEVICE_API_KEY")
-    if expected and x_api_key != expected:
+    key = x_api_key or x_device_key
+    if expected and key != expected:
         raise HTTPException(status_code=401, detail="Virheellinen tai puuttuva API-avain")
 
 
