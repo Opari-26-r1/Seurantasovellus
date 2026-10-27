@@ -66,6 +66,16 @@ static void telemetry_task(void *pvParameters) {
     telemetry_event_t event;
     while (1) {
         if (xQueueReceive(s_telemetry_queue, &event, portMAX_DELAY) == pdTRUE) {
+            ESP_LOGI(TAG, "=== Telemetry Update ===");
+            for (int i = 0; i < NUM_TX_NODES; i++) {
+                ESP_LOGI(TAG, "Node %d [%02x:%02x:%02x:%02x:%02x:%02x] -> Var: %6.2f | Presence: %s",
+                         i + 1,
+                         s_TX_mac[i][0], s_TX_mac[i][1], s_TX_mac[i][2],
+                         s_TX_mac[i][3], s_TX_mac[i][4], s_TX_mac[i][5],
+                         event.variance[i],
+                         event.presence[i] ? "DETECTED" : "CLEAR");
+            }
+
             if (s_wifi_connected) {
                 // Välitetään taulukot ja nodien määrä
                 http_client_send_telemetry(event.variance, event.presence, NUM_TX_NODES);

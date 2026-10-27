@@ -18,8 +18,8 @@
 static const char *TAG = "CSI_TX";
 static const uint8_t s_RX_mac[ESP_NOW_ETH_ALEN] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}; // RX S3:n MAC
 
-static const char *PMK_KEY_STR = "tamaonpmkavainjo";
-static const char *LMK_KEY_STR = "tamaonlmkavainjo";
+static const char* PMK_KEY_STR = "tamaonpmkavainjo";
+static const char* LMK_KEY_STR = "tamaonlmkavainjo";
 
 // Lähetyspayload
 typedef struct {

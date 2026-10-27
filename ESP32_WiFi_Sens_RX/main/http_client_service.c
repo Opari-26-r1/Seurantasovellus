@@ -4,6 +4,8 @@
 #include "esp_log.h"
 #include "esp_http_client.h"
 #include "cJSON.h"
+#include "esp_wifi.h"
+#include "esp_timer.h"
 
 static const char *TAG = "HTTP_SERVICE";
 // Update with your local Docker host LAN IP
@@ -16,7 +18,17 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt) {
     return ESP_OK;
 }
 
-esp_err_t http_client_send_telemetry(const float *variances, const bool *presences, int num_nodes) {
+esp_err_t http_client_send_telemetry(float temp, float press, const float *variances, const bool *presences, int num_nodes) {
+    wifi_ap_record_t ap_info;
+    int rssi = 0;
+    if (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK) {
+        rssi = ap_info.rssi; // esim. -65 dBm
+    } else {
+        ESP_LOGW(TAG, "Wi-Fi AP-tietoja ei saatu, asetetaan rssi = 0");
+    }
+    
+    int64_t uptime_s = esp_timer_get_time() / 1000000ULL;
+
     if (!variances || !presences || num_nodes <= 0) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -24,6 +36,10 @@ esp_err_t http_client_send_telemetry(const float *variances, const bool *presenc
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "device_id", "RX_S3_HUB");
     cJSON *links = cJSON_AddArrayToObject(root, "links");
+    cJSON_AddNumberToObject(root, "temperature", temp);
+    cJSON_AddNumberToObject(root, "pressure", press);
+    cJSON_AddNumberToObject(root, "rssi", rssi);
+    cJSON_AddNumberToObject(root, "uptime_s", (double)uptime_s);
 
     // Käydään läpi kaikki verkon solmut (nyt dynaamisesti num_nodes = 4)
     for (int i = 0; i < num_nodes; i++) {
