@@ -11,6 +11,10 @@ from psycopg2.extras import execute_values
 from db import get_cursor, init_schema
 from models import ReadingIn
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 # Jos laite on ollut hiljaa tätä pidempään, se näytetään offline-tilassa (3 väliin jäänyttä 30 s lähetystä)
 ONLINE_THRESHOLD_S = 90
 
@@ -70,7 +74,7 @@ def create_reading(reading: ReadingIn):
             """
             INSERT INTO readings (device_id, temperature, humidity, pressure, motion, rssi, uptime_s)
             VALUES (%(device_id)s, %(temperature)s, %(humidity)s,
-                    %(pressure)s, %(motion)s, %(rssi)s, %(uptime_s)s)
+                    %(pressure)s, %(motion)s, %(rssi)s, %(uptime_s)s, %(links)s)
             RETURNING time
             """,
             data,
