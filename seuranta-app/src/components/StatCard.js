@@ -6,7 +6,7 @@ export default function StatCard({ icon, label, value, unit, delta, history, col
   const up = delta && !delta.startsWith('-');
 
   return (
-    <article className="flex items-center gap-4 rounded-2xl border border-blue-400/15 bg-[#0a1a3d]/80 p-5 shadow-[0_0_40px_rgba(37,99,235,.08)]">
+    <article className="flex items-center gap-10 rounded-2xl border border-blue-400/15 bg-[#0a1a3d]/80 p-10 shadow-[0_0_40px_rgba(37,99,235,.08)]">
       <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-gradient-to-br from-blue-500 to-blue-700 text-white shadow-[0_0_20px_rgba(59,130,246,.45)]">
         <Icon name={icon} size={26} />
       </span>
