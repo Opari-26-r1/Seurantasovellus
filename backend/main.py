@@ -6,6 +6,7 @@ from typing import Literal
 import psycopg2
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from psycopg2.extras import execute_values
 
 from db import get_cursor, init_schema
 from models import ReadingIn
@@ -42,10 +43,14 @@ app.add_middleware(
 )
 
 
-def verify_device_key(x_api_key: str | None = Header(default=None)):
-    """Jos DEVICE_API_KEY on asetettu .env:iin, laitteen pitää lähettää se X-API-Key-headerissa."""
+def verify_device_key(
+    x_api_key: str | None = Header(default=None),
+    x_device_key: str | None = Header(default=None),
+):
+    """Jos DEVICE_API_KEY on asetettu .env:iin, laitteen pitää lähettää se X-API-Key- tai X-Device-Key-headerissa."""
     expected = os.getenv("DEVICE_API_KEY")
-    if expected and x_api_key != expected:
+    key = x_api_key or x_device_key
+    if expected and key != expected:
         raise HTTPException(status_code=401, detail="Virheellinen tai puuttuva API-avain")
 
 
@@ -64,7 +69,10 @@ def get_status():
 
 @app.post("/readings", status_code=201, dependencies=[Depends(verify_device_key)])
 def create_reading(reading: ReadingIn):
-    """ESP32 lähettää tähän mittauksen 30 s välein (ja heti, kun presenssin tila muuttuu)."""
+    """RX-hubi lähettää tähän mittauksen 30 s välein (ja heti, kun presenssin tila muuttuu).
+    Linjakohtaiset tulokset tallennetaan link_readings-tauluun samalla aikaleimalla."""
+    data = reading.model_dump(exclude={"links"})
+    data["motion"] = reading.room_motion()
     with get_cursor() as cur:
         cur.execute(
             """
@@ -73,9 +81,16 @@ def create_reading(reading: ReadingIn):
                     %(pressure)s, %(motion)s, %(rssi)s, %(uptime_s)s)
             RETURNING time
             """,
-            reading.model_dump(),
+            data,
         )
-        return {"time": cur.fetchone()["time"]}
+        time = cur.fetchone()["time"]
+        if reading.links:
+            execute_values(
+                cur,
+                "INSERT INTO link_readings (time, device_id, tx_id, variance, presence) VALUES %s",
+                [(time, reading.device_id, link.tx_id, link.variance, link.presence) for link in reading.links],
+            )
+        return {"time": time}
 
 
 @app.get("/readings/latest")
@@ -93,9 +108,18 @@ def get_latest_reading(device_id: str | None = None):
             {"device_id": device_id},
         )
         row = cur.fetchone()
-    if row is None:
-        raise HTTPException(status_code=404, detail="Mittauksia ei vielä ole")
-    return {**row, "online": row["age_s"] <= ONLINE_THRESHOLD_S}
+        if row is None:
+            raise HTTPException(status_code=404, detail="Mittauksia ei vielä ole")
+        cur.execute(
+            """
+            SELECT tx_id, variance, presence FROM link_readings
+            WHERE device_id = %(device_id)s AND time = %(time)s
+            ORDER BY tx_id
+            """,
+            row,
+        )
+        links = cur.fetchall()
+    return {**row, "links": links, "online": row["age_s"] <= ONLINE_THRESHOLD_S}
 
 
 @app.get("/readings")
@@ -119,6 +143,32 @@ def get_readings(
               AND (%(device_id)s::text IS NULL OR device_id = %(device_id)s)
             GROUP BY 1
             ORDER BY 1
+            """,
+            {"bucket": bucket, "span": span, "device_id": device_id},
+        )
+        return cur.fetchall()
+
+
+@app.get("/presence/timeline")
+def get_presence_timeline(
+    range: Literal["24h", "7d", "30d"] = "24h",
+    device_id: str | None = None,
+):
+    """Linjakohtainen aikajana: jokaiselle jaksolle ja TX-laitteelle tieto, havaitsiko linja liikettä.
+    Jaksot ovat samat kuin /readings-endpointissa, joten aikaleimat täsmäävät."""
+    span, bucket = RANGES[range]
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT time_bucket(%(bucket)s::interval, time) AS time,
+                   tx_id,
+                   bool_or(presence) AS presence,
+                   round(max(variance)::numeric, 2)::float AS max_variance
+            FROM link_readings
+            WHERE time > now() - %(span)s::interval
+              AND (%(device_id)s::text IS NULL OR device_id = %(device_id)s)
+            GROUP BY 1, 2
+            ORDER BY 1, 2
             """,
             {"bucket": bucket, "span": span, "device_id": device_id},
         )
@@ -154,12 +204,25 @@ def get_recent_presence(device_id: str | None = None, limit: int = Query(default
         periods.append((start, None))  # liike jatkuu edelleen
 
     now = datetime.now(timezone.utc)
-    return [
-        {
-            "start": s,
-            "end": e,
-            "duration_s": int(((e or now) - s).total_seconds()),
-            "ongoing": e is None,
-        }
-        for s, e in reversed(periods[-limit:])
-    ]
+    result = []
+    with get_cursor() as cur:
+        for s, e in reversed(periods[-limit:]):
+            # Mitkä TX-linjat havaitsivat liikettä jakson aikana
+            cur.execute(
+                """
+                SELECT DISTINCT tx_id FROM link_readings
+                WHERE presence
+                  AND time >= %(start)s AND time < %(end)s
+                  AND (%(device_id)s::text IS NULL OR device_id = %(device_id)s)
+                ORDER BY tx_id
+                """,
+                {"start": s, "end": e or now, "device_id": device_id},
+            )
+            result.append({
+                "start": s,
+                "end": e,
+                "duration_s": int(((e or now) - s).total_seconds()),
+                "ongoing": e is None,
+                "tx_ids": [r["tx_id"] for r in cur.fetchall()],
+            })
+    return result
