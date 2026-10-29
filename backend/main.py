@@ -70,7 +70,7 @@ def create_reading(reading: ReadingIn):
             """
             INSERT INTO readings (device_id, temperature, humidity, pressure, motion, rssi, uptime_s)
             VALUES (%(device_id)s, %(temperature)s, %(humidity)s,
-                    %(pressure)s, %(motion)s, %(rssi)s, %(uptime_s)s, %(links)s)
+                    %(pressure)s, %(motion)s, %(rssi)s, %(uptime_s)s)
             RETURNING time
             """,
             reading.model_dump(),
