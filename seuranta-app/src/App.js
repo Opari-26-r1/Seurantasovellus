@@ -22,7 +22,6 @@ function App() {
 
   const readings = dayReadings ?? [];
   const links = latest?.links ?? [];
-  const activeTx = links.filter((l) => l.presence).map((l) => l.tx_id);
   const noData = latestError?.status === 404;
 
   const history = (key) => readings.map((r) => r[key]).filter((v) => v != null);
@@ -74,7 +73,6 @@ function App() {
             history={history('pressure')}
             color="#38bdf8"
           />
-          <PresenceStatCard occupied={latest?.motion ?? null} activeTx={activeTx} />
         </section>
         <div className="grid gap-5 xl:grid-cols-[1.35fr_1fr]">
           <div className="space-y-5">
