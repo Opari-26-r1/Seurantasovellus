@@ -16,6 +16,8 @@ Skenaariot:
   --live [S]                 jatkaa simulointia ja lähettää S s välein (oletus 30) mittauksen backendin
                              POST /readings -rajapintaan kuten RX-hubi -> "Yhdistetty" ja nykytila päivittyvät.
                              Pysäytys Ctrl+C.
+  --cycle                    live-tilassa liike siirtyy joka mittauksella seuraavalle TX-linjalle
+                             (1 -> 2 -> 3 -> 4 -> 1 ...) -> huonekartan hehku kiertää laitteelta toiselle
 
 Huom: ilman --live dataa ei tule lisää, joten laite näkyy offline-tilassa 90 s jälkeen
 ja 24 h näkymät tyhjenevät vuorokauden kuluttua. Aja seed silloin uudelleen.
@@ -25,6 +27,7 @@ Ajetaan backend-kontissa (projektin juuresta):
     docker compose exec backend python tools/seed_db.py --clear --live           # + live-data perään
     docker compose exec backend python tools/seed_db.py --clear --end occupied --missing humidity
     docker compose exec backend python tools/seed_db.py --days 0 --live 5 --activity 5   # pelkkä live, paljon liikettä
+    docker compose exec backend python tools/seed_db.py --days 0 --live 5 --cycle        # liike kiertää TX 1 -> 4
 """
 
 import argparse
@@ -113,7 +116,7 @@ class Simulator:
             k = min(self.tx_count, random.randint(1, 2))
             self.active_tx = set(random.sample(range(1, self.tx_count + 1), k=k))
 
-    def step(self, ts, force_motion=None):
+    def step(self, ts, force_motion=None, force_tx=None):
         # Todennäköisyydet skaalataan mittausvälin mukaan, jotta tiheä ja harva data käyttäytyvät samoin
         step_min = (ts - self.prev).total_seconds() / 60 if self.prev else 5
         self.prev = ts
@@ -127,7 +130,10 @@ class Simulator:
             self.reboot(ts)
 
         # Liike alkaa todennäköisemmin päivällä ja kestää tyypillisesti 10–30 min
-        if force_motion is not None:
+        if force_tx is not None:
+            self.motion = True
+            self.active_tx = {force_tx}
+        elif force_motion is not None:
             if force_motion and not self.motion:
                 self._start_motion()
             self.motion = force_motion
@@ -192,16 +198,20 @@ def seed_history(sim, times, gaps, end, now):
     return rows, link_rows
 
 
-def run_live(sim, interval, api_url):
-    """Lähettää mittauksen backendiin interval sekunnin välein, kuten RX-hubi. Pysäytys Ctrl+C."""
+def run_live(sim, interval, api_url, cycle=False):
+    """Lähettää mittauksen backendiin interval sekunnin välein, kuten RX-hubi. Pysäytys Ctrl+C.
+    cycle: liike siirtyy joka mittauksella seuraavalle TX-linjalle (1 -> 2 -> ... -> 1)."""
     url = api_url.rstrip("/") + "/readings"
     headers = {"Content-Type": "application/json"}
     if os.getenv("DEVICE_API_KEY"):
         headers["X-API-Key"] = os.environ["DEVICE_API_KEY"]
-    print(f"Live-simulointi: POST {url} {interval:g} s välein (Ctrl+C lopettaa)")
+    print(f"Live-simulointi: POST {url} {interval:g} s välein (Ctrl+C lopettaa)"
+          + (", liike kiertää TX-linjoja vuorotellen" if cycle else ""))
+    i = 0
     try:
         while True:
-            r = sim.step(datetime.now(timezone.utc))
+            r = sim.step(datetime.now(timezone.utc), force_tx=i % sim.tx_count + 1 if cycle else None)
+            i += 1
             payload = {k: r[k] for k in ("device_id", *SENSORS, "rssi", "uptime_s")}
             # Kuten RX-hubi: motion päätellään backendissä linjoista, jos niitä on
             if r["links"]:
@@ -250,10 +260,14 @@ if __name__ == "__main__":
     p.add_argument("--activity", type=float, default=1.0, help="liikejaksojen yleisyys kertoimena (oletus 1)")
     p.add_argument("--live", type=float, nargs="?", const=30, metavar="S",
                    help="jatka live-simulointia S s välein backendin kautta (oletus 30)")
+    p.add_argument("--cycle", action="store_true",
+                   help="live-tilassa liike kiertää TX-linjoja vuorotellen joka mittauksella")
     p.add_argument("--api-url", default="http://localhost:8000", help="backendin osoite live-tilassa")
     p.add_argument("--seed", type=int, help="satunnaislukusiemen toistettavaa dataa varten")
     p.add_argument("--clear", action="store_true", help="tyhjennä taulut ennen täyttöä")
     args = p.parse_args()
+    if args.cycle and (not args.live or args.tx < 1):
+        p.error("--cycle vaatii --live-tilan ja vähintään yhden TX-laitteen")
 
     if args.seed is not None:
         random.seed(args.seed)
@@ -289,4 +303,4 @@ if __name__ == "__main__":
               + (f", ei arvoa: {', '.join(args.missing)}" if args.missing else ""))
 
     if args.live:
-        run_live(sim, args.live, args.api_url)
+        run_live(sim, args.live, args.api_url, args.cycle)
