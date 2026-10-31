@@ -1,5 +1,6 @@
 import Card, { CardHeader } from './Card';
 import { formatHour } from './charts/AreaChart';
+import RoomMap from './RoomMap';
 
 const clock = (iso) => new Date(iso).toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
 const txLabel = (ids) => `TX ${ids.join(', ')}`;
@@ -93,35 +94,6 @@ function RecentDetections({ items }) {
   );
 }
 
-/** Linjojen nykytila uusimmasta mittauksesta. */
-function LinkStatus({ links, occupied }) {
-  return (
-    <div className="rounded-xl border border-blue-400/15 p-4">
-      <h3 className="mb-1 text-sm font-semibold text-white">Linjat nyt</h3>
-      <p className="mb-2 flex items-center gap-2 text-xs text-slate-300">
-        <MotionDot active={!!occupied} />
-        {occupied == null ? 'Ei tietoa' : occupied ? 'Huoneessa liikettä' : 'Huone tyhjä'}
-      </p>
-      {links.length === 0 ? (
-        <p className="py-2 text-xs text-slate-400">Ei linjakohtaista dataa</p>
-      ) : (
-        <ul className="divide-y divide-blue-400/10">
-          {links.map((l) => (
-            <li key={l.tx_id} className="flex items-center gap-2 py-1.5 text-sm" title="Varianssi = CSI-signaalin vaihtelu">
-              <MotionDot active={l.presence} />
-              <span className="w-10 font-semibold text-white">TX {l.tx_id}</span>
-              <span className={`flex-1 text-xs ${l.presence ? 'text-emerald-300' : 'text-slate-400'}`}>
-                {l.presence ? 'Liikettä' : 'Ei liikettä'}
-              </span>
-              <span className="text-[11px] text-slate-500">{l.variance != null ? l.variance.toFixed(1) : '–'}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
 /**
  * timeline:     [{ time, motion }]                 huoneen yhteinen tila (/readings?range=24h)
  * linkTimeline: [{ time, tx_id, presence }]        linjakohtainen tila (/presence/timeline)
@@ -140,9 +112,9 @@ export default function PresenceCard({ timeline, linkTimeline, links, detections
         right={<Legend />}
       />
       <Timeline slots={timeline} txIds={txIds} linkMotion={linkMotion} />
-      <div className="mt-4 grid gap-4 sm:grid-cols-[1.4fr_1fr]">
+      <div className="mt-4 grid gap-4 sm:grid-cols-[1.2fr_1fr]">
         <RecentDetections items={detections} />
-        <LinkStatus links={links} occupied={occupied} />
+        <RoomMap txIds={txIds} links={links} occupied={occupied} />
       </div>
     </Card>
   );

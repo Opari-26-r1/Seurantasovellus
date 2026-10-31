@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import Header from './components/Header';
 import StatCard from './components/StatCard';
 import TempHumidityChart from './components/TempHumidityChart';
@@ -11,7 +10,6 @@ import usePolling from './hooks/usePolling';
 import { formatDelta } from './utils/format';
 
 function App() {
-  const [menuOpen, setMenuOpen] = useState(false);
   const backendState = useBackendStatus();
 
   // ESP lähettää 30 s välein -> uusin arvo haetaan 10 s välein, kaaviot harvemmin
@@ -37,7 +35,7 @@ function App() {
       <div className="sr-only">Seurantasovellus</div>
 
       <main className="min-h-screen p-4 md:p-8">
-        <Header backendState={backendState} onOpenMenu={() => setMenuOpen(true)} />
+        <Header backendState={backendState} />
 
         {noData && (
           <p className="mb-5 rounded-xl border border-amber-400/30 bg-amber-400/5 p-4 text-sm text-amber-200">
