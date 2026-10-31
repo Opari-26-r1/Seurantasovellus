@@ -1,8 +1,6 @@
 import { useState } from 'react';
-import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import StatCard from './components/StatCard';
-import PresenceStatCard from './components/PresenceStatCard';
 import TempHumidityChart from './components/TempHumidityChart';
 import PressureChart from './components/PressureChart';
 import PresenceCard from './components/PresenceCard';
@@ -13,7 +11,6 @@ import usePolling from './hooks/usePolling';
 import { formatDelta } from './utils/format';
 
 function App() {
-  const [activeNav, setActiveNav] = useState('Yleiskatsaus');
   const [menuOpen, setMenuOpen] = useState(false);
   const backendState = useBackendStatus();
 
@@ -40,14 +37,7 @@ function App() {
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top_right,#0b2a6b_0%,#051232_45%,#030b22_100%)] text-slate-100">
       <div className="sr-only">Seurantasovellus</div>
 
-      <Sidebar
-        active={activeNav}
-        onSelect={(label) => { setActiveNav(label); setMenuOpen(false); }}
-        open={menuOpen}
-        onClose={() => setMenuOpen(false)}
-      />
-
-      <main className="min-h-screen p-4 md:p-8 lg:pl-[272px]">
+      <main className="min-h-screen p-4 md:p-8">
         <Header backendState={backendState} onOpenMenu={() => setMenuOpen(true)} />
 
         {noData && (
@@ -56,7 +46,7 @@ function App() {
           </p>
         )}
 
-        <section className="mb-5 grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
+        <section className="mb-5 grid gap-4 sm:grid-cols-3">
           <StatCard
             icon="thermometer"
             label="Lämpötila"
@@ -86,7 +76,6 @@ function App() {
           />
           <PresenceStatCard occupied={latest?.motion ?? null} activeTx={activeTx} />
         </section>
-
         <div className="grid gap-5 xl:grid-cols-[1.35fr_1fr]">
           <div className="space-y-5">
             <TempHumidityChart data={readings} />
