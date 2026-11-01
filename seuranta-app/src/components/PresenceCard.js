@@ -1,5 +1,6 @@
-import Card, { CardHeader } from './Card';
+import Card, { CardHeader, StatusDot } from './Card';
 import { formatHour } from './charts/AreaChart';
+import Icon from './Icon';
 
 const clock = (iso) => new Date(iso).toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
 const txLabel = (ids) => `TX ${ids.join(', ')}`;
@@ -46,7 +47,7 @@ function Lane({ label, slots, motionAt, tall }) {
   );
 }
 
-function Timeline({ slots, txIds, linkMotion }) {
+function Timeline({ slots, txIds = [], linkMotion = {} }) {
   if (slots.length === 0) {
     return <div className="grid h-14 place-items-center rounded-lg bg-blue-900/30 text-xs text-slate-400">Ei dataa viimeiseltä 24 tunnilta</div>;
   }
@@ -93,31 +94,21 @@ function RecentDetections({ items }) {
   );
 }
 
-/** Linjojen nykytila uusimmasta mittauksesta. */
-function LinkStatus({ links, occupied }) {
+
+function RoomStatus({ occupied }) {
   return (
-    <div className="rounded-xl border border-blue-400/15 p-4">
-      <h3 className="mb-1 text-sm font-semibold text-white">Linjat nyt</h3>
-      <p className="mb-2 flex items-center gap-2 text-xs text-slate-300">
-        <MotionDot active={!!occupied} />
+    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-blue-400/15 p-4">
+      <div className="relative">
+        <svg viewBox="0 0 120 100" className="h-28 w-32" aria-hidden="true">
+          <path d="M10 10h45M70 10h40v35M110 60v30H65M50 90H10V10" fill="none" stroke="#2563eb" strokeWidth="4" />
+          <circle cx="60" cy="50" r="24" fill="#0f766e" fillOpacity=".25" stroke={occupied ? '#34d399' : '#14b8a6'} strokeOpacity=".6" />
+        </svg>
+        <span className="absolute inset-0 grid place-items-center text-teal-300"><Icon name="user" size={22} /></span>
+      </div>
+      <p className="flex items-center gap-2 text-sm font-semibold text-white">
+        {occupied != null && <StatusDot ok />}
         {occupied == null ? 'Ei tietoa' : occupied ? 'Huoneessa liikettä' : 'Huone tyhjä'}
       </p>
-      {links.length === 0 ? (
-        <p className="py-2 text-xs text-slate-400">Ei linjakohtaista dataa</p>
-      ) : (
-        <ul className="divide-y divide-blue-400/10">
-          {links.map((l) => (
-            <li key={l.tx_id} className="flex items-center gap-2 py-1.5 text-sm" title="Varianssi = CSI-signaalin vaihtelu">
-              <MotionDot active={l.presence} />
-              <span className="w-10 font-semibold text-white">TX {l.tx_id}</span>
-              <span className={`flex-1 text-xs ${l.presence ? 'text-emerald-300' : 'text-slate-400'}`}>
-                {l.presence ? 'Liikettä' : 'Ei liikettä'}
-              </span>
-              <span className="text-[11px] text-slate-500">{l.variance != null ? l.variance.toFixed(1) : '–'}</span>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }
@@ -127,22 +118,19 @@ function LinkStatus({ links, occupied }) {
  * linkTimeline: [{ time, tx_id, presence }]        linjakohtainen tila (/presence/timeline)
  * links:        [{ tx_id, variance, presence }]    linjojen nykytila (/readings/latest)
  */
-export default function PresenceCard({ timeline, linkTimeline, links, detections, occupied }) {
-  const txIds = [...new Set([...linkTimeline.map((r) => r.tx_id), ...links.map((l) => l.tx_id)])].sort((a, b) => a - b);
-  const linkMotion = Object.fromEntries(linkTimeline.map((r) => [`${r.time}|${r.tx_id}`, r.presence]));
-
+export default function PresenceCard({ timeline, detections, occupied }) {
   return (
     <Card>
       <CardHeader
         icon="user"
         title="Presenssin tunnistus"
-        subtitle="Liikehavainnot linjoittain viimeisen 24 tunnin aikana"
+        subtitle="Liikehavaintoja viimeisen 24 tunnin aikana"
         right={<Legend />}
       />
-      <Timeline slots={timeline} txIds={txIds} linkMotion={linkMotion} />
-      <div className="mt-4 grid gap-4 sm:grid-cols-[1.4fr_1fr]">
+      <Timeline slots={timeline} />
+      <div className="mt-4 grid gap-4 sm:grid-cols-[1.6fr_1fr]">
         <RecentDetections items={detections} />
-        <LinkStatus links={links} occupied={occupied} />
+        <RoomStatus occupied={occupied} />
       </div>
     </Card>
   );
