@@ -43,11 +43,23 @@ def timestamps(days, step_min, recent_step_min):
     return result
 
 
-def make_rows(device_id, times):
+def make_link_rows(device_id, ts, motion, active_tx, tx_count):
+    """Linjakohtaiset tulokset: liikkeen aikana vain osa linjoista havaitsee (henkilö on jossain kohtaa huonetta)."""
+    rows = []
+    for tx in range(1, tx_count + 1):
+        presence = motion and tx in active_tx
+        variance = random.uniform(4.0, 8.0) if presence else random.uniform(0.8, 2.8)
+        rows.append((ts, device_id, tx, round(variance, 2), presence))
+    return rows
+
+
+def make_rows(device_id, times, tx_count):
     start = times[0]
     motion = False
+    active_tx = set()
     prev = None
     rows = []
+    link_rows = []
     for ts in times:
         h = ts.timestamp() / 3600
 
@@ -61,6 +73,10 @@ def make_rows(device_id, times):
         else:
             per_hour = 0.6 if daytime else 0.05
             motion = random.random() < 1 - math.exp(-per_hour * step_min / 60)
+            if motion:
+                # Uusi liikejakso: 1–2 linjaa, joiden alueella henkilö liikkuu
+                active_tx = set(random.sample(range(1, tx_count + 1), k=min(tx_count, random.randint(1, 2))))
+        link_rows += make_link_rows(device_id, ts, motion, active_tx, tx_count)
 
         rows.append((
             ts,
@@ -72,7 +88,7 @@ def make_rows(device_id, times):
             random.randint(-62, -50),
             int((ts - start).total_seconds()),
         ))
-    return rows
+    return rows, link_rows
 
 
 if __name__ == "__main__":
@@ -80,19 +96,26 @@ if __name__ == "__main__":
     p.add_argument("--days", type=float, default=30, help="historian pituus vuorokausina (oletus 30)")
     p.add_argument("--step", type=float, default=60, help="historian mittausväli minuutteina (oletus 60)")
     p.add_argument("--recent-step", type=float, default=5, help="viimeisen vuorokauden mittausväli minuutteina (oletus 5)")
-    p.add_argument("--device", default="esp32-1", help="laitteen tunniste")
-    p.add_argument("--clear", action="store_true", help="tyhjennä readings-taulu ennen täyttöä")
+    p.add_argument("--device", default="RX_S3_HUB", help="RX-hubin tunniste (oletus RX_S3_HUB)")
+    p.add_argument("--tx", type=int, default=4, help="TX-laitteiden määrä (oletus 4)")
+    p.add_argument("--clear", action="store_true", help="tyhjennä taulut ennen täyttöä")
     args = p.parse_args()
 
     init_schema()
-    rows = make_rows(args.device, timestamps(args.days, args.step, args.recent_step))
+    rows, link_rows = make_rows(args.device, timestamps(args.days, args.step, args.recent_step), args.tx)
     with get_cursor() as cur:
         if args.clear:
-            cur.execute("TRUNCATE readings")
+            cur.execute("TRUNCATE readings, link_readings")
         execute_values(
             cur,
             "INSERT INTO readings (time, device_id, temperature, humidity, pressure, motion, rssi, uptime_s) VALUES %s",
             rows,
         )
+        execute_values(
+            cur,
+            "INSERT INTO link_readings (time, device_id, tx_id, variance, presence) VALUES %s",
+            link_rows,
+        )
     recent = sum(1 for r in rows if r[0] >= rows[-1][0] - timedelta(days=1))
-    print(f"Lisätty {len(rows)} riviä ({args.days:g} vrk), joista {recent} viimeiseltä vuorokaudelta.")
+    print(f"Lisätty {len(rows)} mittausta ({args.days:g} vrk, joista {recent} viimeiseltä vuorokaudelta) "
+          f"ja {len(link_rows)} linjatulosta ({args.tx} TX-laitetta).")

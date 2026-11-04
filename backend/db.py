@@ -17,6 +17,17 @@ CREATE TABLE IF NOT EXISTS readings (
 );
 SELECT create_hypertable('readings', by_range('time'), if_not_exists => TRUE);
 CREATE INDEX IF NOT EXISTS readings_device_time_idx ON readings (device_id, time DESC);
+
+-- Jokaisen TX -> RX -linjan CSI-tulos. time on sama kuin vastaavalla readings-rivillä.
+CREATE TABLE IF NOT EXISTS link_readings (
+    time        TIMESTAMPTZ      NOT NULL,
+    device_id   TEXT             NOT NULL,
+    tx_id       INTEGER          NOT NULL,
+    variance    DOUBLE PRECISION,
+    presence    BOOLEAN          NOT NULL
+);
+SELECT create_hypertable('link_readings', by_range('time'), if_not_exists => TRUE);
+CREATE INDEX IF NOT EXISTS link_readings_device_time_idx ON link_readings (device_id, time DESC);
 """
 
 
