@@ -1,4 +1,4 @@
-import Card, { CardHeader, StatusDot } from './Card';
+import Card, { CardHeader } from './Card';
 import { formatHour } from './charts/AreaChart';
 import RoomMap from './RoomMap';
 
@@ -99,13 +99,16 @@ function RecentDetections({ items }) {
  * linkTimeline: [{ time, tx_id, presence }]        linjakohtainen tila (/presence/timeline)
  * links:        [{ tx_id, variance, presence }]    linjojen nykytila (/readings/latest)
  */
-export default function PresenceCard({ timeline, detections, occupied }) {
+export default function PresenceCard({ timeline, linkTimeline, links, detections, occupied }) {
+  const txIds = [...new Set([...linkTimeline.map((r) => r.tx_id), ...links.map((l) => l.tx_id)])].sort((a, b) => a - b);
+  const linkMotion = Object.fromEntries(linkTimeline.map((r) => [`${r.time}|${r.tx_id}`, r.presence]));
+
   return (
     <Card>
       <CardHeader
         icon="user"
         title="Presenssin tunnistus"
-        subtitle="Liikehavaintoja viimeisen 24 tunnin aikana"
+        subtitle="Liikehavainnot linjoittain viimeisen 24 tunnin aikana"
         right={<Legend />}
       />
       <Timeline slots={timeline} txIds={txIds} linkMotion={linkMotion} />
