@@ -15,9 +15,9 @@ function App() {
   const backendState = useBackendStatus();
 
   // ESP lähettää 30 s välein -> uusin arvo haetaan 10 s välein, kaaviot harvemmin
-  const { data: latest, error: latestError } = usePolling('/readings/latest', 10000);
+  const { data: latest, error: latestError } = usePolling('/readings/latest', 1000);
   const { data: dayReadings } = usePolling('/readings?range=24h', 60000);
-  const { data: detections } = usePolling('/presence/recent?limit=4', 30000);
+  const { data: detections } = usePolling('/presence/recent?limit=4', 1000);
 
   const readings = dayReadings ?? [];
   const noData = latestError?.status === 404;
