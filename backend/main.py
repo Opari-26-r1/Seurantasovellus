@@ -37,16 +37,20 @@ app = FastAPI(title="Seurantasovellus API", lifespan=lifespan)
 cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[origin.strip() for origin in cors_origins],
+    allow_origins=[origin.strip().rstrip('/') for origin in cors_origins],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-def verify_device_key(x_api_key: str | None = Header(default=None)):
-    """Jos DEVICE_API_KEY on asetettu .env:iin, laitteen pitää lähettää se X-API-Key-headerissa."""
+def verify_device_key(
+    x_api_key: str | None = Header(default=None),
+    x_device_key: str | None = Header(default=None),
+):
+    """Jos DEVICE_API_KEY on asetettu .env:iin, laitteen pitää lähettää se X-API-Key- tai X-Device-Key-headerissa."""
     expected = os.getenv("DEVICE_API_KEY")
-    if expected and x_api_key != expected:
+    key = x_api_key or x_device_key
+    if expected and key != expected:
         raise HTTPException(status_code=401, detail="Virheellinen tai puuttuva API-avain")
 
 

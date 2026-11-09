@@ -13,10 +13,9 @@ function App() {
   const backendState = useBackendStatus();
 
   // ESP lähettää 30 s välein -> uusin arvo haetaan 10 s välein, kaaviot harvemmin
-  const { data: latest, error: latestError } = usePolling('/readings/latest', 5000);
+  const { data: latest, error: latestError } = usePolling('/readings/latest', 1000);
   const { data: dayReadings } = usePolling('/readings?range=24h', 60000);
-  const { data: detections } = usePolling('/presence/recent?limit=4', 30000);
-  const { data: linkTimeline } = usePolling('/presence/timeline?range=24h', 60000);
+  const { data: detections } = usePolling('/presence/recent?limit=4', 1000);
 
   const readings = dayReadings ?? [];
   const links = latest?.links ?? [];
@@ -80,8 +79,6 @@ function App() {
           <div className="space-y-5">
             <PresenceCard
               timeline={readings.map((r) => ({ time: r.time, motion: !!r.motion }))}
-              linkTimeline={linkTimeline ?? []}
-              links={links}
               detections={detections ?? []}
               occupied={latest?.motion ?? null}
             />

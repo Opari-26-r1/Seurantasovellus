@@ -1,6 +1,7 @@
 #include "http_client_service.h"
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 #include "esp_log.h"
 #include "esp_http_client.h"
 #include "cJSON.h"
@@ -39,6 +40,13 @@ esp_err_t http_client_send_telemetry(float temp, float press, const float *varia
     cJSON_AddNumberToObject(root, "rssi", rssi);
     cJSON_AddNumberToObject(root, "uptime_s", (double)uptime_s);
 
+    if (!isnan(temp)) {
+        cJSON_AddNumberToObject(root, "temperature", (double)(roundf(temp * 100.0f) / 100.0f));
+    }
+    if (!isnan(press)) {
+        cJSON_AddNumberToObject(root, "pressure", (double)(roundf(press * 100.0f) / 100.0f));
+    }
+
     cJSON *links = cJSON_AddArrayToObject(root, "links");
     for (int i = 0; i < num_nodes; i++) {
         cJSON *link = cJSON_CreateObject();
@@ -72,6 +80,7 @@ esp_err_t http_client_send_telemetry(float temp, float press, const float *varia
 
     esp_http_client_set_header(client, "Content-Type", "application/json");
     //Tarkista vastaako avain backendiin määritettyä avainta
+    esp_http_client_set_header(client, "X-API-Key", DEVICE_API_KEY);
     esp_http_client_set_header(client, "X-Device-Key", DEVICE_API_KEY);
     esp_http_client_set_post_field(client, post_data, strlen(post_data));
 

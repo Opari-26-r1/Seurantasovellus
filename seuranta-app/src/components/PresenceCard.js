@@ -1,4 +1,4 @@
-import Card, { CardHeader } from './Card';
+import Card, { CardHeader, StatusDot } from './Card';
 import { formatHour } from './charts/AreaChart';
 import RoomMap from './RoomMap';
 
@@ -47,7 +47,7 @@ function Lane({ label, slots, motionAt, tall }) {
   );
 }
 
-function Timeline({ slots, txIds, linkMotion }) {
+function Timeline({ slots, txIds = [], linkMotion = {} }) {
   if (slots.length === 0) {
     return <div className="grid h-14 place-items-center rounded-lg bg-blue-900/30 text-xs text-slate-400">Ei dataa viimeiseltä 24 tunnilta</div>;
   }
@@ -99,16 +99,13 @@ function RecentDetections({ items }) {
  * linkTimeline: [{ time, tx_id, presence }]        linjakohtainen tila (/presence/timeline)
  * links:        [{ tx_id, variance, presence }]    linjojen nykytila (/readings/latest)
  */
-export default function PresenceCard({ timeline, linkTimeline, links, detections, occupied }) {
-  const txIds = [...new Set([...linkTimeline.map((r) => r.tx_id), ...links.map((l) => l.tx_id)])].sort((a, b) => a - b);
-  const linkMotion = Object.fromEntries(linkTimeline.map((r) => [`${r.time}|${r.tx_id}`, r.presence]));
-
+export default function PresenceCard({ timeline, detections, occupied }) {
   return (
     <Card>
       <CardHeader
         icon="user"
         title="Presenssin tunnistus"
-        subtitle="Liikehavainnot linjoittain viimeisen 24 tunnin aikana"
+        subtitle="Liikehavaintoja viimeisen 24 tunnin aikana"
         right={<Legend />}
       />
       <Timeline slots={timeline} txIds={txIds} linkMotion={linkMotion} />
