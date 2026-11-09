@@ -1,4 +1,3 @@
-import Icon from './Icon';
 
 const statusText = {
   loading: { label: 'Tarkistetaan yhteyttä...', dot: 'bg-amber-400' },
@@ -6,7 +5,7 @@ const statusText = {
   error: { label: 'Backend ei vastaa', dot: 'bg-red-500 shadow-[0_0_8px_#ef4444]' },
 };
 
-export default function Header({ backendState, onOpenMenu }) {
+export default function Header({ backendState }) {
   const s = statusText[backendState];
 
   return (

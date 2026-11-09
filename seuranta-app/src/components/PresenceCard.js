@@ -1,6 +1,6 @@
-import Card, { CardHeader, StatusDot } from './Card';
+import Card, { CardHeader } from './Card';
 import { formatHour } from './charts/AreaChart';
-import Icon from './Icon';
+import RoomMap from './RoomMap';
 
 const clock = (iso) => new Date(iso).toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
 const txLabel = (ids) => `TX ${ids.join(', ')}`;
@@ -94,43 +94,27 @@ function RecentDetections({ items }) {
   );
 }
 
-
-function RoomStatus({ occupied }) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-blue-400/15 p-4">
-      <div className="relative">
-        <svg viewBox="0 0 120 100" className="h-28 w-32" aria-hidden="true">
-          <path d="M10 10h45M70 10h40v35M110 60v30H65M50 90H10V10" fill="none" stroke="#2563eb" strokeWidth="4" />
-          <circle cx="60" cy="50" r="24" fill="#0f766e" fillOpacity=".25" stroke={occupied ? '#34d399' : '#14b8a6'} strokeOpacity=".6" />
-        </svg>
-        <span className="absolute inset-0 grid place-items-center text-teal-300"><Icon name="user" size={22} /></span>
-      </div>
-      <p className="flex items-center gap-2 text-sm font-semibold text-white">
-        {occupied != null && <StatusDot ok />}
-        {occupied == null ? 'Ei tietoa' : occupied ? 'Huoneessa liikettä' : 'Huone tyhjä'}
-      </p>
-    </div>
-  );
-}
-
 /**
  * timeline:     [{ time, motion }]                 huoneen yhteinen tila (/readings?range=24h)
  * linkTimeline: [{ time, tx_id, presence }]        linjakohtainen tila (/presence/timeline)
  * links:        [{ tx_id, variance, presence }]    linjojen nykytila (/readings/latest)
  */
-export default function PresenceCard({ timeline, detections, occupied }) {
+export default function PresenceCard({ timeline, linkTimeline, links, detections, occupied }) {
+  const txIds = [...new Set([...linkTimeline.map((r) => r.tx_id), ...links.map((l) => l.tx_id)])].sort((a, b) => a - b);
+  const linkMotion = Object.fromEntries(linkTimeline.map((r) => [`${r.time}|${r.tx_id}`, r.presence]));
+
   return (
     <Card>
       <CardHeader
         icon="user"
         title="Presenssin tunnistus"
-        subtitle="Liikehavaintoja viimeisen 24 tunnin aikana"
+        subtitle="Liikehavainnot linjoittain viimeisen 24 tunnin aikana"
         right={<Legend />}
       />
-      <Timeline slots={timeline} />
-      <div className="mt-4 grid gap-4 sm:grid-cols-[1.6fr_1fr]">
+      <Timeline slots={timeline} txIds={txIds} linkMotion={linkMotion} />
+      <div className="mt-4 grid gap-4 sm:grid-cols-[1.2fr_1fr]">
         <RecentDetections items={detections} />
-        <RoomStatus occupied={occupied} />
+        <RoomMap txIds={txIds} links={links} occupied={occupied} />
       </div>
     </Card>
   );

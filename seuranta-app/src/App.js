@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import Header from './components/Header';
 import StatCard from './components/StatCard';
 import TempHumidityChart from './components/TempHumidityChart';
@@ -11,15 +10,16 @@ import usePolling from './hooks/usePolling';
 import { formatDelta } from './utils/format';
 
 function App() {
-  const [menuOpen, setMenuOpen] = useState(false);
   const backendState = useBackendStatus();
 
   // ESP lähettää 30 s välein -> uusin arvo haetaan 10 s välein, kaaviot harvemmin
   const { data: latest, error: latestError } = usePolling('/readings/latest', 1000);
   const { data: dayReadings } = usePolling('/readings?range=24h', 60000);
   const { data: detections } = usePolling('/presence/recent?limit=4', 1000);
+  const { data: linkTimeline } = usePolling('/presence/timeline?range=24h', 60000);
 
   const readings = dayReadings ?? [];
+  const links = latest?.links ?? [];
   const noData = latestError?.status === 404;
 
   const history = (key) => readings.map((r) => r[key]).filter((v) => v != null);
@@ -35,7 +35,7 @@ function App() {
       <div className="sr-only">Seurantasovellus</div>
 
       <main className="min-h-screen p-4 md:p-8">
-        <Header backendState={backendState} onOpenMenu={() => setMenuOpen(true)} />
+        <Header backendState={backendState} />
 
         {noData && (
           <p className="mb-5 rounded-xl border border-amber-400/30 bg-amber-400/5 p-4 text-sm text-amber-200">
@@ -80,6 +80,8 @@ function App() {
           <div className="space-y-5">
             <PresenceCard
               timeline={readings.map((r) => ({ time: r.time, motion: !!r.motion }))}
+              linkTimeline={linkTimeline ?? []}
+              links={links}
               detections={detections ?? []}
               occupied={latest?.motion ?? null}
             />
