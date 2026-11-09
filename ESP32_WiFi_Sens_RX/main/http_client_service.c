@@ -9,8 +9,8 @@
 #include "esp_timer.h"
 
 static const char *TAG = "HTTP_SERVICE";
-#define SERVER_URL "http://DockerKoneIp:8000"
-#define DEVICE_API_KEY "OMA_LAITE_AVAIN_TAHAN"
+#define SERVER_URL "http://DockerKoneIP:8000"
+#define DEVICE_API_KEY "API-Key"
 
 static esp_err_t http_event_handler(esp_http_client_event_t *evt) {
     if (evt->event_id == HTTP_EVENT_ON_DATA) {

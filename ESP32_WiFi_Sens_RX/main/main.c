@@ -14,7 +14,7 @@
 #include "http_client_service.h"
 
 #define WIFI_SSID           "SSID"
-#define WIFI_PASS           "PASSWORD"
+#define WIFI_PASS           "Password"
 #define SENSING_CHANNEL     6
 #define WINDOW_SIZE         30
 #define NUM_SUBCARRIERS     64
@@ -24,10 +24,10 @@
 
 static const char *TAG = "CSI_RX";
 static const uint8_t s_TX_mac[NUM_TX_NODES][ESP_NOW_ETH_ALEN] = {
-                             {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, //node 1 esp32-s3
-                            {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, //node 2 esp32 D0WD
-                            {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, //node 3 esp32 D0WD
-                            {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}   //node 4 esp32 D0WD
+                            {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, //node 1 esp32-s3
+                            {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, //node 2 esp32 
+                            {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, //node 3 esp32 
+                            {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}  //node 4 esp32 
 };
 
 //ESP-NOW device pairing unique keys
@@ -236,7 +236,6 @@ void app_main(void) {
         memcpy(peer.lmk, LMK_KEY_STR, ESP_NOW_KEY_LEN);
         ESP_ERROR_CHECK(esp_now_add_peer(&peer));
     };
-
     // Create FreeRTOS Queue and Background Worker Task
     s_telemetry_queue = xQueueCreate(10, sizeof(telemetry_event_t));
     xTaskCreatePinnedToCore(telemetry_task, "telemetry_task", 4096, NULL, 5, NULL, 1);
