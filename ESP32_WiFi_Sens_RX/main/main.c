@@ -134,31 +134,32 @@ static void wifi_csi_rx_cb(void *ctx, wifi_csi_info_t *info) {
     // Tallennetaan laskettu varianssi oikealle nodelle
     s_variances[tx_idx] = total_var / valid_subcarriers;
 
-    // Rate-limit: Lähetetään koottu tilanne 1.5 s välein
+// Lähetetään heti kun minkä tahansa linjan tila muuttuu (min. 1.5 s välein),
+    // muuten 30 s välein elossaolon merkiksi
     static TickType_t last_send_tick = 0;
-    static bool last_presence_state = false;
+    static bool last_presence[NUM_TX_NODES] = {false};
     TickType_t now = xTaskGetTickCount();
-    bool current_presence = false;
 
+    bool current_presence[NUM_TX_NODES];
+    bool state_changed = false;
     for (int i = 0; i < NUM_TX_NODES; i++) {
-        if (s_variances[i] > VARIANCE_THRESHOLD) {
-            current_presence = true;
-            break;
+        current_presence[i] = (s_variances[i] > VARIANCE_THRESHOLD);
+        if (current_presence[i] != last_presence[i]) {
+            state_changed = true;
         }
     }
 
-    bool state_changed = (current_presence != last_presence_state);
-    bool interval_elapsed = (now - last_send_tick) > pdMS_TO_TICKS(30000);
-    bool cooldown_ok = (now - last_send_tick) > pdMS_TO_TICKS(1500);
+    bool interval_elapsed = (now - last_send_tick) > pdMS_TO_TICKS(15000);
+    bool cooldown_ok = (now - last_send_tick) > pdMS_TO_TICKS(500);
 
     if (cooldown_ok && (state_changed || interval_elapsed)) {
         last_send_tick = now;
-        last_presence_state = current_presence;
 
         telemetry_event_t event;
         for (int i = 0; i < NUM_TX_NODES; i++) {
             event.variance[i] = s_variances[i];
-            event.presence[i] = (s_variances[i] > VARIANCE_THRESHOLD);
+            event.presence[i] = current_presence[i];
+            last_presence[i] = current_presence[i];
         }
         xQueueSend(s_telemetry_queue, &event, 0);
     }

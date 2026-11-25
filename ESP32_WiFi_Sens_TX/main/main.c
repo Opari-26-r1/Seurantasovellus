@@ -69,7 +69,7 @@ void app_main(void) {
     memcpy(peer_info.lmk, LMK_KEY_STR, ESP_NOW_KEY_LEN);
     ESP_ERROR_CHECK(esp_now_add_peer(&peer_info));
 
-    //Pakotetaan tälle peerille 802.11n (HT20) nopeus, jotta CSI toimii
+    //Pakotetaan tälle peerille 802.11n (HT20) nopeus
     esp_now_rate_config_t rate_cfg = {
         .phymode = WIFI_PHY_MODE_HT20,
         .rate    = WIFI_PHY_RATE_MCS0_LGI,
